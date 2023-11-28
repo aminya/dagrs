@@ -177,7 +177,7 @@ impl Dag {
         self.tasks.values().for_each(|task| {
             self.execute_states.insert(
                 task.id(),
-                Arc::new(ExecState::new(task.id(), task.name().to_string())),
+                Arc::new(ExecState::new(task.id(), task.name_owned())),
             );
         });
 

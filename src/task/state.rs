@@ -43,6 +43,7 @@ use std::{
     },
 };
 
+use kstring::KString;
 use tokio::sync::Semaphore;
 
 /// Container type to store task output.
@@ -83,7 +84,7 @@ pub(crate) struct ExecState {
     output: AtomicPtr<Output>,
     /// Task output identified by id.
     tid: usize,
-    task_name: String,
+    task_name: KString,
     /// The semaphore is used to control the synchronous blocking of subsequent tasks to obtain the
     /// execution results of this task.
     /// When a task is successfully executed, the permits inside the semaphore will be increased to
@@ -108,7 +109,7 @@ pub struct Input(Vec<Content>);
 #[allow(dead_code)]
 impl ExecState {
     /// Construct a new [`ExeState`].
-    pub(crate) fn new(task_id: usize, task_name: String) -> Self {
+    pub(crate) fn new(task_id: usize, task_name: KString) -> Self {
         Self {
             success: AtomicBool::new(false),
             output: AtomicPtr::new(std::ptr::null_mut()),

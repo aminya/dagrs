@@ -2,6 +2,7 @@
 
 use super::{FileContentError, FileNotFound, YamlTask, YamlTaskError};
 use crate::{utils::ParseError, Action, CommandAction, Parser, Task};
+use kstring::KString;
 use std::{collections::HashMap, fs::File, io::Read, sync::Arc};
 use yaml_rust::{Yaml, YamlLoader};
 
@@ -31,16 +32,17 @@ impl YamlParser {
         specific_action: Option<Action>,
     ) -> Result<YamlTask, YamlTaskError> {
         // Get name first
-        let name = item["name"]
-            .as_str()
-            .ok_or(YamlTaskError::NoNameAttr(id.to_owned()))?
-            .to_owned();
+        let name = KString::from_ref(
+            item["name"]
+                .as_str()
+                .ok_or(YamlTaskError::NoNameAttr(id.to_owned()))?,
+        );
         // precursors can be empty
         let mut precursors = Vec::new();
         if let Some(after_tasks) = item["after"].as_vec() {
             after_tasks
                 .iter()
-                .for_each(|task_id| precursors.push(task_id.as_str().unwrap().to_owned()));
+                .for_each(|task_id| precursors.push(KString::from_ref(task_id.as_str().unwrap())));
         }
 
         if let Some(action) = specific_action {

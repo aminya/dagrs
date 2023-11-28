@@ -2,7 +2,7 @@ use kstring::KString;
 
 use super::{Action, Complex, Task, ID_ALLOCATOR};
 use crate::{EnvVar, Input, Output};
-use std::{str::FromStr, sync::Arc};
+use std::sync::Arc;
 
 /// Common task types
 ///
@@ -79,14 +79,14 @@ impl DefaultTask {
         DefaultTask {
             id: ID_ALLOCATOR.alloc(),
             action: Action::Closure(Arc::new(action)),
-            name: KString::from_str(name).unwrap(),
+            name: KString::from_ref(name),
             precursors: Vec::new(),
         }
     }
     /// Create a task, give the task name, and provide a specific type that implements the [`Complex`] trait as the specific
     /// execution logic of the task.
     pub fn with_action(name: &str, action: impl Complex + Send + Sync + 'static) -> Self {
-        Self::with_action_dyn(KString::from_str(name).unwrap(), Arc::new(action))
+        Self::with_action_dyn(KString::from_ref(name), Arc::new(action))
     }
 
     /// Create a task, give the task name, and provide a dynamic task that implements the [`Complex`] trait as the specific
@@ -105,7 +105,7 @@ impl DefaultTask {
         name: &str,
         action: impl Fn(Input, Arc<EnvVar>) -> Output + Send + Sync + 'static,
     ) -> Self {
-        Self::with_closure_dyn(KString::from_str(name).unwrap(), Arc::new(action))
+        Self::with_closure_dyn(KString::from_ref(name), Arc::new(action))
     }
 
     /// Create a task, give the task name, and provide a closure as the specific execution logic of the task.
@@ -179,6 +179,10 @@ impl Task for DefaultTask {
 
     fn name(&self) -> &str {
         &self.name
+    }
+
+    fn name_owned(&self) -> KString {
+        self.name.clone()
     }
 }
 

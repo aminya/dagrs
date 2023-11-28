@@ -27,6 +27,8 @@
 use std::fmt::Debug;
 use std::sync::atomic::AtomicUsize;
 
+use kstring::KString;
+
 pub use self::action::{Action, Complex, Simple};
 pub use self::cmd::CommandAction;
 pub use self::default_task::DefaultTask;
@@ -55,6 +57,10 @@ pub trait Task: Send + Sync {
     fn id(&self) -> usize;
     /// Get the name of this task.
     fn name(&self) -> &str;
+    /// Get the name of this task as a [`KString`].
+    fn name_owned(&self) -> KString {
+        KString::from_ref(self.name())
+    }
 }
 
 /// IDAllocator for DefaultTask

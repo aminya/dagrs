@@ -7,25 +7,26 @@
 //! It is different from `DefaultTask`, in addition to the four mandatory attributes of the
 //! task type, he has several additional attributes.
 
+use kstring::KString;
+
 use crate::{alloc_id, Action, Task};
 
 /// Task struct for yaml file.
 pub struct YamlTask {
     /// `yid` is the unique identifier defined in yaml, and `id` is the id assigned by the global id assigner.
-    yid: String,
+    yid: KString,
     id: usize,
-    name: String,
+    name: KString,
     /// Precursor identifier defined in yaml.
-    precursors: Vec<String>,
+    precursors: Vec<KString>,
     precursors_id: Vec<usize>,
     action: Action,
 }
 
 impl YamlTask {
-    #[allow(unused)]
-    pub fn new(yaml_id: &str, precursors: Vec<String>, name: String, action: Action) -> Self {
+    pub fn new(yaml_id: &str, precursors: Vec<KString>, name: KString, action: Action) -> Self {
         Self {
-            yid: yaml_id.to_owned(),
+            yid: KString::from_ref(yaml_id),
             id: alloc_id(),
             name,
             precursors,
@@ -36,18 +37,15 @@ impl YamlTask {
     /// After the configuration file is parsed, the id of each task has been assigned.
     /// At this time, the `precursors_id` of this task will be initialized according to
     /// the id of the predecessor task of each task.
-    #[allow(unused)]
     pub fn init_precursors(&mut self, pres_id: Vec<usize>) {
         self.precursors_id = pres_id;
     }
 
     /// Get the precursor identifier defined in yaml.
-    #[allow(unused)]
-    pub fn str_precursors(&self) -> Vec<String> {
+    pub fn str_precursors(&self) -> Vec<KString> {
         self.precursors.clone()
     }
     /// Get the unique ID of the task defined in yaml.
-    #[allow(unused)]
     pub fn str_id(&self) -> &str {
         &self.yid
     }
