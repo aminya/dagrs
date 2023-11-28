@@ -1,6 +1,8 @@
+use kstring::KString;
+
 use super::{Action, Complex, Task, ID_ALLOCATOR};
 use crate::{EnvVar, Input, Output};
-use std::sync::Arc;
+use std::{str::FromStr, sync::Arc};
 
 /// Common task types
 ///
@@ -63,7 +65,7 @@ pub struct DefaultTask {
     /// when creating a new task, you can find this task through this identifier.
     id: usize,
     /// The task's name.
-    name: String,
+    name: KString,
     /// Id of the predecessor tasks.
     precursors: Vec<usize>,
     /// Perform specific actions.
@@ -77,23 +79,23 @@ impl DefaultTask {
         DefaultTask {
             id: ID_ALLOCATOR.alloc(),
             action: Action::Closure(Arc::new(action)),
-            name: name.to_owned(),
+            name: KString::from_str(name).unwrap(),
             precursors: Vec::new(),
         }
     }
     /// Create a task, give the task name, and provide a specific type that implements the [`Complex`] trait as the specific
     /// execution logic of the task.
     pub fn with_action(name: &str, action: impl Complex + Send + Sync + 'static) -> Self {
-        Self::with_action_dyn(name, Arc::new(action))
+        Self::with_action_dyn(KString::from_str(name).unwrap(), Arc::new(action))
     }
 
     /// Create a task, give the task name, and provide a dynamic task that implements the [`Complex`] trait as the specific
     /// execution logic of the task.
-    pub fn with_action_dyn(name: &str, action: Arc<dyn Complex + Send + Sync>) -> Self {
+    pub fn with_action_dyn(name: KString, action: Arc<dyn Complex + Send + Sync>) -> Self {
         DefaultTask {
             id: ID_ALLOCATOR.alloc(),
             action: Action::Structure(action),
-            name: name.to_owned(),
+            name,
             precursors: Vec::new(),
         }
     }
@@ -103,25 +105,25 @@ impl DefaultTask {
         name: &str,
         action: impl Fn(Input, Arc<EnvVar>) -> Output + Send + Sync + 'static,
     ) -> Self {
-        Self::with_closure_dyn(name, Arc::new(action))
+        Self::with_closure_dyn(KString::from_str(name).unwrap(), Arc::new(action))
     }
 
     /// Create a task, give the task name, and provide a closure as the specific execution logic of the task.
     pub fn with_closure_dyn(
-        name: &str,
+        name: KString,
         action: Arc<dyn Fn(Input, Arc<EnvVar>) -> Output + Send + Sync>,
     ) -> Self {
         DefaultTask {
             id: ID_ALLOCATOR.alloc(),
             action: Action::Closure(action),
-            name: name.to_owned(),
+            name,
             precursors: Vec::new(),
         }
     }
 
     /// Give the task a name.
-    pub fn set_name(&mut self, name: &str) {
-        self.name = name.to_string();
+    pub fn set_name(&mut self, name: KString) {
+        self.name = name;
     }
 
     /// Tasks that shall be executed before this one.
@@ -183,7 +185,7 @@ impl Task for DefaultTask {
 impl Default for DefaultTask {
     fn default() -> Self {
         let id = ID_ALLOCATOR.alloc();
-        let name = format!("Task {}", id);
+        let name = format!("Task {}", id).into();
         let action = |_, _| Output::empty();
         Self {
             id,

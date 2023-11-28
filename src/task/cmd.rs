@@ -1,18 +1,22 @@
+use kstring::KString;
+
 use crate::{Complex, EnvVar, Input, Output};
 use std::process::Command;
+use std::str::FromStr;
 use std::sync::Arc;
 
 /// [`CommandAction`] is a specific implementation of [`Complex`], used to execute operating system commands.
 pub struct CommandAction {
-    command: String,
+    command: KString,
 }
 
 impl CommandAction {
-    #[allow(unused)]
-    pub fn new(cmd: &str) -> Self {
-        Self {
-            command: cmd.to_owned(),
-        }
+    pub fn new(command: &str) -> Self {
+        Self::from(KString::from_str(command).unwrap())
+    }
+
+    pub fn from(command: KString) -> Self {
+        Self { command }
     }
 }
 
