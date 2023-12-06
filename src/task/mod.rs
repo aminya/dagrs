@@ -27,8 +27,6 @@
 use std::fmt::Debug;
 use std::sync::atomic::AtomicUsize;
 
-use kstring::KString;
-
 pub use self::action::{Action, Complex, Simple};
 pub use self::cmd::CommandAction;
 pub use self::default_task::DefaultTask;
@@ -48,7 +46,7 @@ mod state;
 ///
 /// A task must provide methods to obtain precursors and required attributes, just as
 /// the methods defined below, users who want to customize tasks must implement these methods.
-pub trait Task: Send + Sync {
+pub trait Task<Name: ToString + Send + Sync + ToOwned>: Send + Sync {
     /// Get a reference to an executable action.
     fn action(&self) -> Action;
     /// Get the id of all predecessor tasks of this task.
@@ -56,11 +54,7 @@ pub trait Task: Send + Sync {
     /// Get the id of this task.
     fn id(&self) -> usize;
     /// Get the name of this task.
-    fn name(&self) -> &str;
-    /// Get the name of this task as a [`KString`].
-    fn name_owned(&self) -> KString {
-        KString::from_ref(self.name())
-    }
+    fn name(&self) -> &Name;
 }
 
 /// IDAllocator for DefaultTask
@@ -68,7 +62,7 @@ struct IDAllocator {
     id: AtomicUsize,
 }
 
-impl Debug for dyn Task {
+impl<Name: ToString + Send + Sync + ToOwned> Debug for dyn Task<Name> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(
             f,

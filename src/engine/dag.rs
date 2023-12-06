@@ -47,16 +47,16 @@ use tokio::task::JoinHandle;
 ///
 /// ```
 #[derive(Debug)]
-pub struct Dag {
+pub struct Dag<Name: Send + Sync> {
     /// Store all tasks' infos.
     ///
     /// Arc but no mutex, because only one thread will change [`TaskWrapper`]at a time.
     /// And no modification to [`TaskWrapper`] happens during the execution of it.
-    tasks: HashMap<usize, Box<dyn Task>>,
+    tasks: HashMap<usize, Box<dyn Task<Name>>>,
     /// Store dependency relations.
     rely_graph: Graph,
     /// Store a task's running result.Execution results will be read and written asynchronously by several threads.
-    execute_states: HashMap<usize, Arc<ExecState>>,
+    execute_states: HashMap<usize, Arc<ExecState<Name>>>,
     /// Global environment variables for this Dag job. It should be set before the Dag job runs.
     env: Arc<EnvVar>,
     /// Mark whether the Dag task can continue to execute.
@@ -69,10 +69,10 @@ pub struct Dag {
     exe_sequence: Vec<usize>,
 }
 
-impl Dag {
+impl<Name: ToString + Send + Sync + ToOwned> Dag<Name> {
     /// Create a dag. This function is not open to the public. There are three ways to create a new
     /// dag, corresponding to three functions: `with_tasks`, `with_yaml`, `with_config_file_and_parser`.
-    fn new() -> Dag {
+    fn new() -> Dag<Name> {
         Dag {
             tasks: HashMap::new(),
             rely_graph: Graph::new(),
@@ -84,7 +84,7 @@ impl Dag {
     }
 
     /// Create a dag by adding a series of tasks.
-    pub fn with_tasks(tasks: Vec<impl Task + 'static>) -> Dag {
+    pub fn with_tasks(tasks: Vec<impl Task<Name> + 'static>) -> Dag<Name> {
         let mut dag = Dag::new();
 
         dag.tasks = tasks
@@ -96,7 +96,7 @@ impl Dag {
     }
 
     /// Create a dag by adding a series of tasks that implement the [`Task`] trait.
-    pub fn with_tasks_dyn(tasks: Vec<Box<dyn Task>>) -> Dag {
+    pub fn with_tasks_dyn(tasks: Vec<Box<dyn Task<Name>>>) -> Dag<Name> {
         let mut dag = Dag::new();
 
         dag.tasks = tasks.into_iter().map(|task| (task.id(), task)).collect();
@@ -109,7 +109,7 @@ impl Dag {
     pub fn with_yaml(
         file: &str,
         specific_actions: HashMap<String, Action>,
-    ) -> Result<Dag, DagError> {
+    ) -> Result<Dag<Name>, DagError> {
         use crate::YamlParser;
         let parser = Box::new(YamlParser);
         Dag::read_tasks(file, parser, specific_actions)
@@ -118,9 +118,9 @@ impl Dag {
     /// Generates a dag with the user given path to a custom parser and task config file.
     pub fn with_config_file_and_parser(
         file: &str,
-        parser: Box<dyn Parser>,
+        parser: Box<dyn Parser<Name>>,
         specific_actions: HashMap<String, Action>,
-    ) -> Result<Dag, DagError> {
+    ) -> Result<Dag<Name>, DagError> {
         Dag::read_tasks(file, parser, specific_actions)
     }
 
@@ -128,9 +128,9 @@ impl Dag {
 
     fn read_tasks(
         file: &str,
-        parser: Box<dyn Parser>,
+        parser: Box<dyn Parser<Name>>,
         specific_actions: HashMap<String, Action>,
-    ) -> Result<Dag, DagError> {
+    ) -> Result<Dag<Name>, DagError> {
         let tasks = parser.parse_tasks(file, specific_actions)?;
 
         let mut dag = Dag::new();
@@ -177,7 +177,7 @@ impl Dag {
         self.tasks.values().for_each(|task| {
             self.execute_states.insert(
                 task.id(),
-                Arc::new(ExecState::new(task.id(), task.name_owned())),
+                Arc::new(ExecState::new(task.id(), task.name().to_owned())),
             );
         });
 
@@ -252,7 +252,7 @@ impl Dag {
     }
 
     /// Execute a given task asynchronously.
-    fn execute_task(&self, task: &dyn Task) -> JoinHandle<bool> {
+    fn execute_task(&self, task: &dyn Task<Name>) -> JoinHandle<bool> {
         let env = self.env.clone();
         let task_id = task.id();
         let task_name = task.name().to_string();

@@ -1,5 +1,3 @@
-use kstring::KString;
-
 use super::{Action, Complex, Task, ID_ALLOCATOR};
 use crate::{EnvVar, Input, Output};
 use std::sync::Arc;
@@ -60,38 +58,38 @@ use std::sync::Arc;
 ///
 /// A default implementation of the Task trait. In general, use it to define the tasks of dagrs.
 #[derive(Clone)]
-pub struct DefaultTask {
+pub struct DefaultTask<Name: Send> {
     /// id is the unique identifier of each task, it will be assigned by the global [`IDAllocator`]
     /// when creating a new task, you can find this task through this identifier.
     id: usize,
     /// The task's name.
-    name: KString,
+    name: Name,
     /// Id of the predecessor tasks.
     precursors: Vec<usize>,
     /// Perform specific actions.
     action: Action,
 }
 
-impl DefaultTask {
+impl<Name: ToString + Send + Sync + ToOwned> DefaultTask<Name> {
     /// Create a task and specify the task name. You may need to call the `set_action` or `set_closure` function later.
-    pub fn new(name: &str) -> Self {
+    pub fn new(name: Name) -> Self {
         let action = |_, _| Output::empty();
         DefaultTask {
             id: ID_ALLOCATOR.alloc(),
             action: Action::Closure(Arc::new(action)),
-            name: KString::from_ref(name),
+            name,
             precursors: Vec::new(),
         }
     }
     /// Create a task, give the task name, and provide a specific type that implements the [`Complex`] trait as the specific
     /// execution logic of the task.
-    pub fn with_action(name: &str, action: impl Complex + Send + Sync + 'static) -> Self {
-        Self::with_action_dyn(KString::from_ref(name), Arc::new(action))
+    pub fn with_action(name: Name, action: impl Complex + Send + Sync + 'static) -> Self {
+        Self::with_action_dyn(name, Arc::new(action))
     }
 
     /// Create a task, give the task name, and provide a dynamic task that implements the [`Complex`] trait as the specific
     /// execution logic of the task.
-    pub fn with_action_dyn(name: KString, action: Arc<dyn Complex + Send + Sync>) -> Self {
+    pub fn with_action_dyn(name: Name, action: Arc<dyn Complex + Send + Sync>) -> Self {
         DefaultTask {
             id: ID_ALLOCATOR.alloc(),
             action: Action::Structure(action),
@@ -102,15 +100,15 @@ impl DefaultTask {
 
     /// Create a task, give the task name, and provide a closure as the specific execution logic of the task.
     pub fn with_closure(
-        name: &str,
+        name: Name,
         action: impl Fn(Input, Arc<EnvVar>) -> Output + Send + Sync + 'static,
     ) -> Self {
-        Self::with_closure_dyn(KString::from_ref(name), Arc::new(action))
+        Self::with_closure_dyn(name, Arc::new(action))
     }
 
     /// Create a task, give the task name, and provide a closure as the specific execution logic of the task.
     pub fn with_closure_dyn(
-        name: KString,
+        name: Name,
         action: Arc<dyn Fn(Input, Arc<EnvVar>) -> Output + Send + Sync>,
     ) -> Self {
         DefaultTask {
@@ -122,7 +120,7 @@ impl DefaultTask {
     }
 
     /// Give the task a name.
-    pub fn set_name(&mut self, name: KString) {
+    pub fn set_name(&mut self, name: Name) {
         self.name = name;
     }
 
@@ -138,8 +136,10 @@ impl DefaultTask {
     /// In above code, `t1` will be executed before `t2`.
     pub fn set_predecessors<'a>(
         &mut self,
-        predecessors: impl IntoIterator<Item = &'a &'a DefaultTask>,
-    ) {
+        predecessors: impl IntoIterator<Item = &'a &'a DefaultTask<Name>>,
+    ) where
+        Name: 'a,
+    {
         self.precursors
             .extend(predecessors.into_iter().map(|t| t.id()))
     }
@@ -164,7 +164,7 @@ impl DefaultTask {
     }
 }
 
-impl Task for DefaultTask {
+impl<Name: ToString + Send + Sync + ToOwned> Task<Name> for DefaultTask<Name> {
     fn action(&self) -> Action {
         self.action.clone()
     }
@@ -177,16 +177,12 @@ impl Task for DefaultTask {
         self.id
     }
 
-    fn name(&self) -> &str {
+    fn name(&self) -> &Name {
         &self.name
-    }
-
-    fn name_owned(&self) -> KString {
-        self.name.clone()
     }
 }
 
-impl Default for DefaultTask {
+impl<Name: ToString + Send + Sync + ToOwned> Default for DefaultTask<Name> {
     fn default() -> Self {
         let id = ID_ALLOCATOR.alloc();
         let name = format!("Task {}", id).into();

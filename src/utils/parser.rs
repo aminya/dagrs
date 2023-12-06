@@ -6,7 +6,7 @@ use std::collections::HashMap;
 
 /// Generic parser traits. If users want to customize the configuration file parser, they must implement this trait.
 /// The yaml module's `YamlParser` is an example.
-pub trait Parser {
+pub trait Parser<Name> {
     /// Parses the contents of a configuration file into a series of tasks with dependencies.
     /// Parameter Description:
     /// - file: path information of the configuration file
@@ -24,7 +24,7 @@ pub trait Parser {
         &self,
         file: &str,
         specific_actions: HashMap<String, Action>,
-    ) -> Result<Vec<Box<dyn Task>>, ParseError>;
+    ) -> Result<Vec<Box<dyn Task<Name>>>, ParseError>;
 }
 
 /// Errors that may occur during configuration file parsing.

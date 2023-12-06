@@ -55,7 +55,6 @@
 mod yaml_parser;
 mod yaml_task;
 
-use kstring::KString;
 use thiserror::Error;
 
 pub use self::yaml_parser::YamlParser;
@@ -77,7 +76,7 @@ pub enum YamlTaskError {
     NotFoundPrecursor(String),
     /// `script` is not defined.
     #[error("The 'script' attribute is not defined. [{0}]")]
-    NoScriptAttr(KString),
+    NoScriptAttr(String),
 }
 
 /// Error about file information.

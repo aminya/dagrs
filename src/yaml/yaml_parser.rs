@@ -2,8 +2,8 @@
 
 use super::{FileContentError, FileNotFound, YamlTask, YamlTaskError};
 use crate::{utils::ParseError, Action, CommandAction, Parser, Task};
-use kstring::KString;
-use std::{collections::HashMap, fs::File, io::Read, sync::Arc};
+
+use std::{collections::HashMap, fs::File, io::Read, str::FromStr, sync::Arc};
 use yaml_rust::{Yaml, YamlLoader};
 
 /// An implementation of [`Parser`]. It is the default yaml configuration file parser.
@@ -25,24 +25,24 @@ impl YamlParser {
     ///    after: [b, c]
     ///    cmd: echo a
     /// ```
-    fn parse_one(
+    fn parse_one<Name: FromStr>(
         &self,
         id: &str,
         item: &Yaml,
         specific_action: Option<Action>,
-    ) -> Result<YamlTask, YamlTaskError> {
+    ) -> Result<YamlTask<Name>, YamlTaskError> {
         // Get name first
-        let name = KString::from_ref(
-            item["name"]
-                .as_str()
-                .ok_or(YamlTaskError::NoNameAttr(id.to_owned()))?,
-        );
+        let name_str = item["name"]
+            .as_str()
+            .ok_or(YamlTaskError::NoNameAttr(id.to_owned()))?;
+        let name: Name = Name::from_str(name_str).unwrap();
+
         // precursors can be empty
         let mut precursors = Vec::new();
         if let Some(after_tasks) = item["after"].as_vec() {
-            after_tasks
-                .iter()
-                .for_each(|task_id| precursors.push(KString::from_ref(task_id.as_str().unwrap())));
+            after_tasks.iter().for_each(|task_id| {
+                precursors.push(Name::from_str(task_id.as_str().unwrap()).unwrap())
+            });
         }
 
         if let Some(action) = specific_action {
@@ -50,7 +50,7 @@ impl YamlParser {
         } else {
             let cmd = item["cmd"]
                 .as_str()
-                .ok_or(YamlTaskError::NoScriptAttr(name.clone()))?;
+                .ok_or(YamlTaskError::NoScriptAttr(name_str.to_owned()))?;
             Ok(YamlTask::new(
                 id,
                 precursors,
@@ -61,12 +61,12 @@ impl YamlParser {
     }
 }
 
-impl Parser for YamlParser {
+impl<Name: ToString + Send + Sync + ToOwned> Parser<Name> for YamlParser {
     fn parse_tasks(
         &self,
         file: &str,
         mut specific_actions: HashMap<String, Action>,
-    ) -> Result<Vec<Box<dyn Task>>, ParseError> {
+    ) -> Result<Vec<Box<dyn Task<Name>>>, ParseError> {
         let content = self.load_file(file)?;
         // Parse Yaml
         let yaml_tasks =
